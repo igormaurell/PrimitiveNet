@@ -139,6 +139,10 @@ if __name__ == '__main__':
 
     model = model.cuda()
 
+    # if torch.cuda.device_count() > 1:
+    #     print("Let's use %d GPUs!" % (torch.cuda.device_count()))
+    #     model = torch.nn.DataParallel(model)
+
     # logger.info(model)
     logger.info('#classifier parameters: {}'.format(sum([x.nelement() for x in model.parameters()])))
 
