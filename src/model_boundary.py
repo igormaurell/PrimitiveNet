@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 
-import spconv
-from spconv.modules import SparseModule
+import spconv.pytorch as spconv
 import functools
 from collections import OrderedDict
 import sys
@@ -12,7 +11,7 @@ from lib.pointgroup_ops.functions import pointgroup_ops
 from util import utils
 import numpy as np
 
-class ResidualBlock(SparseModule):
+class ResidualBlock(spconv.modules.SparseModule):
     def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
         super().__init__()
 
@@ -22,28 +21,28 @@ class ResidualBlock(SparseModule):
             )
         else:
             self.i_branch = spconv.SparseSequential(
-                spconv.SubMConv3d(in_channels, out_channels, kernel_size=1, bias=False)
+                spconv.conv.SubMConv3d(in_channels, out_channels, kernel_size=1, bias=False)
             )
 
         self.conv_branch = spconv.SparseSequential(
             norm_fn(in_channels),
             nn.ReLU(),
-            spconv.SubMConv3d(in_channels, out_channels, kernel_size=3, padding=1, bias=False, indice_key=indice_key),
+            spconv.conv.SubMConv3d(in_channels, out_channels, kernel_size=3, padding=1, bias=False, indice_key=indice_key),
             norm_fn(out_channels),
             nn.ReLU(),
-            spconv.SubMConv3d(out_channels, out_channels, kernel_size=3, padding=1, bias=False, indice_key=indice_key)
+            spconv.conv.SubMConv3d(out_channels, out_channels, kernel_size=3, padding=1, bias=False, indice_key=indice_key)
         )
 
     def forward(self, input):
         identity = spconv.SparseConvTensor(input.features, input.indices, input.spatial_shape, input.batch_size)
 
         output = self.conv_branch(input)
-        output.features += self.i_branch(identity).features
+        output = output.replace_feature(output.features + self.i_branch(identity).features)
 
         return output
 
 
-class VGGBlock(SparseModule):
+class VGGBlock(spconv.modules.SparseModule):
     def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
         super().__init__()
 
@@ -98,7 +97,7 @@ class UBlock(nn.Module):
             output_decoder = self.u(output_decoder)
             output_decoder = self.deconv(output_decoder)
 
-            output.features = torch.cat((identity.features, output_decoder.features), dim=1)
+            output = output.replace_feature(torch.cat((identity.features, output_decoder.features), dim=1))
 
             output = self.blocks_tail(output)
 

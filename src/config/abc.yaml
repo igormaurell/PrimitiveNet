@@ -7,7 +7,7 @@ DATA:
 
   input_channel: 3
   scale: 300   # voxel_size = 1 / scale, scale (2dm)
-  batch_size: 4
+  batch_size: 32
   full_scale: [128, 512]
   max_npoint: 250000
   mode: 4 # 4=mean
