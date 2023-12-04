@@ -246,11 +246,12 @@ class SemanticPrediction(nn.Module):
             i_tensor = orig_idx.view(-1)
             j_tensor = edge_idx.view(-1)
     
-            if max_edge >= 0:
-                perm = torch.randperm(i_tensor.size(0),device='cuda')
-                idx = perm[:max_edge]
-                i_tensor = i_tensor[idx]
-                j_tensor = j_tensor[idx]
+            # TODO: add this again
+            # if max_edge >= 0:
+            #     perm = torch.randperm(i_tensor.size(0),device='cuda')
+            #     idx = perm[:max_edge]
+            #     i_tensor = i_tensor[idx]
+            #     j_tensor = j_tensor[idx]
         else:
             i_tensor = boundary_edge_idx[:,0]
             j_tensor = boundary_edge_idx[:,1]
@@ -293,22 +294,31 @@ def model_fn_decorator(test=False):
 
         coords_float = batch['locs_float'].cuda()              # (N, 3), float32, cuda
         normals_float = batch['normals'].cuda()
-        labels = batch['boundaries'].cuda()                        # (N), long, cuda
+        labels = batch['labels'].cuda() if 'labels' in batch else None          # (N), long, cuda
 
         spatial_shape = batch['spatial_shape']
 
-        gt_boundary = batch['boundaries'].cuda()
+        gt_boundary = batch['boundaries'].cuda() if 'boundaries' in batch else None
         gt_semantic = batch['semantics_gt'].cuda()
 
         edge_idx = batch['locs_indices'].cuda()
-        boundary_edge_idx = batch['edge_indices'].cuda()
+        boundary_edge_idx = batch['edge_indices'].cuda() if 'edge_indices' in batch else None
 
         if cfg.normal == 1:
             feats = torch.cat((coords_float, normals_float), 1)
         else:
             feats = coords_float
 
-        ret = model(voxel_coords, v2p_map, p2v_map, feats, coords, edge_idx, spatial_shape, epoch, cfg, max_edge=1024*512, boundary_edge_idx = boundary_edge_idx)
+        ret = model(voxel_coords, v2p_map, p2v_map, feats, coords, edge_idx, spatial_shape,
+                    epoch, cfg, max_edge=1024*512, boundary_edge_idx=boundary_edge_idx)
+    
+        if gt_boundary is None:
+            assert labels is not None
+
+            edges = ret['edges']
+
+            gt_boundary = (labels[edges[:, 0]] == labels[edges[:, 1]]).long()
+        
         #semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
         
         pred_o = ret['pred_o']
@@ -362,7 +372,7 @@ def model_fn_decorator(test=False):
         spatial_shape = batch['spatial_shape']
 
         edge_idx = batch['locs_indices'].cuda()
-        boundary_edge_idx = batch['edge_indices'].cuda()
+        boundary_edge_idx = batch['edge_indices'].cuda() if 'edge_indices' in batch else None
 
         if cfg.normal == 1:
             feats = torch.cat((coords_float, normals_float), 1)
@@ -377,7 +387,7 @@ def model_fn_decorator(test=False):
         boundary = ret['boundary']
         pred_semantic = ret['primitive_pred']
 
-        return {'o': pred_o, 'n': pred_n, 'b': softmax(boundary), 'p': softmax(pred_semantic)}
+        return {'o': pred_o, 'n': pred_n, 'b': softmax(boundary), 'p': softmax(pred_semantic), 'e': ret['edges']}
 
     def loss_fn(loss_inp, epoch):
 

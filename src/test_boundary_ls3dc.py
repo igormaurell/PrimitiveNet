@@ -1,6 +1,6 @@
 from model_boundary import model_fn_decorator
 from model_boundary import SemanticPrediction as Network
-from dataset import ABCDataset
+from dataset_ls3dc import readCSVFilenames, readHD5F
 
 import torch
 import torch.optim as optim
@@ -22,10 +22,12 @@ import yaml
 from multiprocessing import Pool
 import os
 from ctypes import *
+from tqdm import trange
 
 Regiongrow = cdll.LoadLibrary('./cpp/build/libregiongrow.so')
 
-files = sorted([cfg.root_dir + '/val/' + p for p in os.listdir(cfg.root_dir + '/val/') if p[-3:] == 'npz'])
+files = sorted(readCSVFilenames(cfg.root_dir + '/test_models.csv'))
+files = [cfg.root_dir + '/' + tf for tf in files]
 
 def init():
     # random seed
@@ -62,20 +64,30 @@ def Parse(iii, model, model_fn, start_epoch):
     fn = files[iii]
     #if len(fn.split('taihedianguangchang')) <= 1:
     #    return
-    data = np.load(files[iii])
+    # data = np.load(files[iii])
 
-    #xyz_origin, normal, boundary = data['V'], data['N'], data['B']
-    xyz_origin, normal, boundary, F, SF = data['V'], data['N'], data['B'], data['F'], data['S']
-    semantics = np.zeros((xyz_origin.shape[0]), dtype='int32')
-    semantics[F[:,0]] = SF
-    semantics[F[:,1]] = SF
-    semantics[F[:,2]] = SF
+    # #xyz_origin, normal, boundary = data['V'], data['N'], data['B']
+    # xyz_origin, normal, boundary, F, SF = data['V'], data['N'], data['B'], data['F'], data['S']
+    # semantics = np.zeros((xyz_origin.shape[0]), dtype='int32')
+    # semantics[F[:,0]] = SF
+    # semantics[F[:,1]] = SF
+    # semantics[F[:,2]] = SF
+
+    data = readHD5F(files[iii])
+
+    xyz_origin = data['xyz']
+    normal = data['normals']
+    xyz_origin_noise = data['xyz_noisy']
+    normal_noise = data['normals_noisy']
+    labels = data['labels']
+    semantics = data['semantics']
 
     original_indices = np.arange(xyz_origin.shape[0])
     xyz_middle, normal_middle = xyz_origin, normal
 
-    xyz_middle_noise = xyz_middle# + (np.random.rand(xyz_middle.shape[0], xyz_middle.shape[1]) * 2 - 1) * cfg.gen_noise
-    normal_middle_noise = normal_middle
+    xyz_middle_noise = xyz_origin_noise
+    normal_middle_noise = normal_noise
+
     xyz_middle -= xyz_middle_noise.min(0)
     xyz_middle_noise -= xyz_middle_noise.min(0)
 
@@ -89,7 +101,7 @@ def Parse(iii, model, model_fn, start_epoch):
     sampling_map[original_indices[:]] = final_indices
 
     tree = cKDTree(xyz_middle)
-    d, ii = tree.query(xyz_middle, k=16, n_jobs=16)
+    d, ii = tree.query(xyz_middle, k=16, workers=16)
     locs_indices.append(torch.from_numpy(ii))
 
     locs.append(torch.cat([torch.LongTensor(xyz.shape[0], 1).fill_(0), torch.from_numpy(xyz).long()], 1))
@@ -100,19 +112,19 @@ def Parse(iii, model, model_fn, start_epoch):
     semantics_gt.append(torch.from_numpy(semantics))
 
     # get valid edges
-    mask = np.zeros(xyz_origin.shape[0], dtype='int32')
-    mask[original_indices] = 1
-    v1 = np.concatenate([F[:,0:1], F[:,1:2], F[:,2:3]])
-    v2 = np.concatenate([F[:,1:2], F[:,2:3], F[:,0:1]])
-    vmask = ((mask[v1] + mask[v2]) == 2)
-    v1 = v1[vmask]
-    v2 = v2[vmask]
-    edge_idx = np.concatenate([v1.reshape(-1,1), v2.reshape(-1,1)], axis=1)
-    edge_idx = sampling_map[edge_idx]
-    edge_boundary = (np.sum(boundary[edge_idx], axis=1) > 0).astype('int64')
+    # mask = np.zeros(xyz_origin.shape[0], dtype='int32')
+    # mask[original_indices] = 1
+    # v1 = np.concatenate([F[:,0:1], F[:,1:2], F[:,2:3]])
+    # v2 = np.concatenate([F[:,1:2], F[:,2:3], F[:,0:1]])
+    # vmask = ((mask[v1] + mask[v2]) == 2)
+    # v1 = v1[vmask]
+    # v2 = v2[vmask]
+    # edge_idx = np.concatenate([v1.reshape(-1,1), v2.reshape(-1,1)], axis=1)
+    # edge_idx = sampling_map[edge_idx]
+    # edge_boundary = (np.sum(boundary[edge_idx], axis=1) > 0).astype('int64')
 
-    edge_indices.append(torch.from_numpy(edge_idx))
-    boundaries.append(torch.from_numpy(edge_boundary))
+    # edge_indices.append(torch.from_numpy(edge_idx))
+    # boundaries.append(torch.from_numpy(edge_boundary))
 
 
     locs = torch.cat(locs, 0)                                # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
@@ -122,8 +134,8 @@ def Parse(iii, model, model_fn, start_epoch):
     normals = torch.cat(normals, 0).to(torch.float32)                              # float (N, C)
     normals_gt = torch.cat(normals_gt, 0).to(torch.float32)
     semantics_gt = torch.cat(semantics_gt, 0).long()
-    boundaries = torch.cat(boundaries, 0).long()                     # long (N)
-    edge_indices = torch.cat(edge_indices, 0).long()
+    #boundaries = torch.cat(boundaries, 0).long()                     # long (N)
+    #edge_indices = torch.cat(edge_indices, 0).long()
 
     max_dim = locs.max(0)[0][1:].numpy()
     min_dim = locs.min(0)[0][1:].numpy()
@@ -133,9 +145,10 @@ def Parse(iii, model, model_fn, start_epoch):
     voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(locs, 1, cfg.mode)
     if np.min(min_dim) < 0 or np.max(max_dim) > 511:
         return
+       
     batch = {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
         'locs_float': locs_float, 'locs_indices': locs_indices, 'locs_float_gt': locs_float_gt,
-        'normals': normals, 'normals_gt': normals_gt, 'semantics_gt':semantics_gt, 'boundaries': boundaries, 'edge_indices': edge_indices,
+        'normals': normals, 'normals_gt': normals_gt, 'semantics_gt':semantics_gt, 'labels': labels,
         'id': id, 'spatial_shape': spatial_shape}
 
     prediction = model_fn(batch, model, start_epoch)
@@ -143,43 +156,47 @@ def Parse(iii, model, model_fn, start_epoch):
     V = xyz_middle_noise
 
     pb = (prediction['b'][:,1] > 0.5).data.cpu().numpy().astype('int32')
-    pp = np.argmax(prediction['p'].data.cpu().numpy(), axis=1)
+    #pp = np.argmax(prediction['p'].data.cpu().numpy(), axis=1)
 
-    edges = edge_indices.data.cpu().numpy().astype('int32')
-    intensity = prediction['b'][:,1].data.cpu().numpy() * 0.99
+    #edges = edge_indices.data.cpu().numpy().astype('int32')
+    #intensity = prediction['b'][:,1].data.cpu().numpy() * 0.99
+
+    F = prediction['e'].cpu().numpy().astype(np.int32)
+
+    boundaries = (labels[F[:, 0]] == labels[F[:, 1]])
   
+    # TODO: make the method to not use F anymore
     face_labels = np.zeros((F.shape[0]), dtype='int32')
     masks = np.zeros((V.shape[0]), dtype='int32')
     pb = (prediction['b'][:,1]>prediction['b'][:,0]).data.cpu().numpy().astype('int32')
-    print(pb.shape, F.shape)
-    Regiongrow.RegionGrowing(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
+    Regiongrow.RegionGrowingNoMesh(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
         V.shape[0], F.shape[0], c_void_p(face_labels.ctypes.data), c_void_p(masks.ctypes.data),
         c_float(0.99))
 
-    pb = boundaries.data.cpu().numpy().astype('int32')
+    pb = boundaries
     gt_face_labels = np.zeros((F.shape[0]), dtype='int32')
     gt_masks = np.zeros((V.shape[0]), dtype='int32')
                 
-    Regiongrow.RegionGrowing(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
+    Regiongrow.RegionGrowingNoMesh(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
         V.shape[0], F.shape[0], c_void_p(gt_face_labels.ctypes.data), c_void_p(gt_masks.ctypes.data),
         c_float(0.99))
 
     semantic_faces = semantics[F[:,0]]
     semantic_faces_gt = semantics_gt.data.cpu().numpy()[F[:,0]]
-    np.savez_compressed('results/predictions/%s'%(fn.split('/')[-1]), V=V,F=F,L=face_labels,L_gt=gt_face_labels, S=semantic_faces, S_gt=semantic_faces_gt)
-    
-    colors = np.random.rand(10000, 3)
-    VC = (V[F[:,0]] + V[F[:,1]] + V[F[:,2]]) / 3.0
+    np.savez_compressed('results/predictions/%s'%(fn.split('/')[-1]), V=V,F=F,L=face_labels,L_gt=gt_face_labels,
+                                                                      S=semantic_faces, S_gt=semantic_faces_gt)
+    # colors = np.random.rand(10000, 3)
+    # VC = (V[F[:,0]] + V[F[:,1]] + V[F[:,2]]) / 3.0
 
-    fp = open('results/visualize/%s.obj'%(fn.split('/')[-1][:-4]), 'w')
-    for i in range(VC.shape[0]):
-        v = VC[i]
-        if face_labels[i] < 0:
-            p = np.array([0,0,0])
-        else:
-            p = colors[face_labels[i]]
-        fp.write('v %f %f %f %f %f %f\n'%(v[0],v[1],v[2],p[0],p[1],p[2]))
-    fp.close()
+    # fp = open('results/visualize/%s.obj'%(fn.split('/')[-1][:-4]), 'w')
+    # for i in range(VC.shape[0]):
+    #     v = VC[i]
+    #     if face_labels[i] < 0:
+    #         p = np.array([0,0,0])
+    #     else:
+    #         p = colors[face_labels[i]]
+    #     fp.write('v %f %f %f %f %f %f\n'%(v[0],v[1],v[2],p[0],p[1],p[2]))
+    # fp.close()
 
 if __name__ == '__main__':
     ##### init
@@ -201,7 +218,6 @@ if __name__ == '__main__':
     model_fn = model_fn_decorator(True)
 
     start_epoch = utils.checkpoint_restore(model, cfg.exp_path, cfg.config.split('/')[-1][:-5], use_cuda, 0, False, cfg.pretrain)
-
     model.eval()
-    for i in range(0,len(files)):
+    for i in trange(0,len(files)):
         Parse(i, model, model_fn, start_epoch)

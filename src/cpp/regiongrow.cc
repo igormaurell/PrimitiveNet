@@ -76,6 +76,73 @@ void RegionGrowing(int* boundary, int* F, int numV, int numF, int* face_labels, 
 	}
 }
 
+void RegionGrowingNoMesh(int* boundary, int* F, int numV, int numF, int* face_labels, int* output_mask, float score_thres) {
+	std::vector<std::unordered_map<int, int> > v_neighbors(numV);
+	for (int i = 0; i < numF; ++i) {
+		for (int j = 0; j < 2; ++j) {
+			int b = boundary[j * numF + i];
+			int v0 = F[i * 2 + j];
+			int v1 = F[i * 2 + (j + 1) % 2];
+			v_neighbors[v0][v1] = b;
+			v_neighbors[v1][v0] = b;
+		}
+	}
+
+	std::vector<int> mask(numV, -2);
+	int num_boundary = 0;
+	for (int i = 0; i < numV; ++i) {
+		int is_boundary = 0;
+		for (auto& info : v_neighbors[i]) {
+			if (info.second == 1) {
+				is_boundary += 1;
+			}
+		}
+		if (is_boundary >= v_neighbors[i].size() * score_thres) {
+			mask[i] = -1;
+			num_boundary += 1;
+		}
+	}
+
+	if (output_mask) {
+		int b = 0;
+		for (int i = 0; i < numV; ++i) {
+			output_mask[i] = (mask[i] == -1) ? 1 : 0;
+			b += output_mask[i];
+		}
+	}
+
+	int num_labels = 0;
+	for (int i = 0; i < mask.size(); ++i) {
+		if (mask[i] == -2) {
+			std::queue<int> q;
+			q.push(i);
+			mask[i] = num_labels;
+			while (!q.empty()) {
+				int v = q.front();
+				q.pop();
+				for (auto& nv : v_neighbors[v]) {
+					if (nv.second == 0 && mask[nv.first] == -2) {
+						mask[nv.first] = num_labels;
+						q.push(nv.first);
+					}
+				}
+			}
+			num_labels += 1;
+		}
+	}
+
+	for (int i = 0; i < numF; ++i) {
+		int label = -1;
+		for (int j = 0; j < 2; ++j) {
+			if (mask[F[i * 2 + j]] >= 0) {
+				label = mask[F[i * 2 + j]];
+				break;
+			}
+		}
+		face_labels[i] = label;
+	}
+}
+
 int GetParent(std::vector<int>& parent, int j) {
 	if (j == parent[j])
 		return j;

@@ -36,4 +36,4 @@ OPTIM:
 
 TEST:
   pred_path: results/preds
-  exp_path: ./checkpoint
+  exp_path: ./checkpoint2

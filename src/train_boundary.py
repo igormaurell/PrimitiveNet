@@ -118,6 +118,8 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
 
     logger.info("epoch: {}/{}, train loss: {:.4f}, time: {}s".format(epoch, cfg.epochs, am_dict['loss'].avg, time.time() - start_epoch))
 
+    print(model)
+
     utils.checkpoint_save(model, cfg.exp_path, cfg.config.split('/')[-1][:-5], epoch, cfg.save_freq, use_cuda)
 
     #for k in am_dict.keys():

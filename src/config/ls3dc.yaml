@@ -1,5 +1,5 @@
 GENERAL:
-  root_dir: ../data/LS3DC
+  root_dir: ../data/LS3DC/ls3dc_444_7k
   task: train
 DATA:
   classes: 4
@@ -7,7 +7,7 @@ DATA:
 
   input_channel: 3
   scale: 300   # voxel_size = 1 / scale, scale (2dm)
-  batch_size: 4
+  batch_size: 64
   full_scale: [128, 512]
   max_npoint: 250000
   mode: 4 # 4=mean
@@ -17,7 +17,7 @@ MODEL:
   m: 16 # 16 or 32
   block_residual: True
   block_reps: 2
-  classes: 10
+  classes: 4
   use_coords: True
   pretrain_path:
   pretrain_module: []
@@ -36,4 +36,4 @@ OPTIM:
 
 TEST:
   pred_path: results/preds
-  exp_path: ./checkpoint
+  exp_path: ./checkpoint/ls3dc_444_7k

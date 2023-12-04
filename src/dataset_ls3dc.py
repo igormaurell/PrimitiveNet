@@ -8,6 +8,9 @@ from torch.utils.data import DataLoader
 import psutil
 sys.path.append('../')
 
+from os.path import exists
+import csv
+
 from util.config import cfg
 from lib.pointgroup_ops.functions import pointgroup_ops
 
@@ -74,12 +77,21 @@ def readHD5F(file_name):
 
 	return result
 
+def readCSVFilenames(csv_file_name):
+    data = []
+    if exists(csv_file_name):
+        with open(csv_file_name, 'r', newline='') as f:
+            data = list(csv.reader(f, delimiter=',', quotechar='|'))
+            data = data[0] if len(data) > 0 else data
+    return data
+
 class LS3DCDataset:
 	def __init__(self):
 		self.root_dir = cfg.root_dir
 		self.batch_size = cfg.batch_size
 		self.scale = cfg.scale
-		train_files = sorted([self.root_dir + '/train/' + p for p in os.listdir(self.root_dir + '/train/') if p[-3:] == 'npz'])
+		train_files = sorted(readCSVFilenames(self.root_dir + '/train_models.csv'))
+		train_files = [self.root_dir + '/' + tf for tf in train_files]
 		self.files = train_files
 		train_set = list(range(len(self.files)))
 		self.full_scale = cfg.full_scale
@@ -165,7 +177,7 @@ class LS3DCDataset:
 			file_names.append(self.files[idx])
 			data = readHD5F(self.files[idx])
 
-			xyz_origin, normal, boundary, F, SF = data['V'], data['N'], data['B'], data['F'], data['S']
+			# xyz_origin, normal, boundary, F, SF = data['V'], data['N'], data['B'], data['F'], data['S']
 
 			xyz_origin = data['xyz']
 			normal = data['normals']
@@ -222,22 +234,22 @@ class LS3DCDataset:
 			normals.append(torch.from_numpy(normal_middle_noise))
 			normals_gt.append(torch.from_numpy(normal_middle))
 			semantics_gt.append(torch.from_numpy(semantics))
+			all_labels.append(torch.from_numpy(labels))
 
 			# get valid edges
-			mask = np.zeros(xyz_origin.shape[0], dtype='int32')
-			mask[original_indices] = 1
-			v1 = np.concatenate([F[:,0:1], F[:,1:2], F[:,2:3]])
-			v2 = np.concatenate([F[:,1:2], F[:,2:3], F[:,0:1]])
-			vmask = ((mask[v1] + mask[v2]) == 2)
-			v1 = v1[vmask]
-			v2 = v2[vmask]
-			edge_idx = np.concatenate([v1.reshape(-1,1), v2.reshape(-1,1)], axis=1)
-			edge_idx = sampling_map[edge_idx]
-
+			# mask = np.zeros(xyz_origin.shape[0], dtype='int32')
+			# mask[original_indices] = 1
+			# v1 = np.concatenate([F[:,0:1], F[:,1:2], F[:,2:3]])
+			# v2 = np.concatenate([F[:,1:2], F[:,2:3], F[:,0:1]])
+			# vmask = ((mask[v1] + mask[v2]) == 2)
+			# v1 = v1[vmask]
+			# v2 = v2[vmask]
+			# edge_idx = np.concatenate([v1.reshape(-1,1), v2.reshape(-1,1)], axis=1)
+			# edge_idx = sampling_map[edge_idx]
+            
 			#edge_boundary = (np.sum(boundary[edge_idx], axis=1) > 0).astype('int64')
 
-			edge_indices.append(torch.from_numpy(edge_idx + voffset))
-			all_labels.append(torch.from_numpy(labels))
+			# edge_indices.append(torch.from_numpy(edge_idx + voffset))
 
 			voffset += xyz_middle.shape[0]
 
@@ -248,8 +260,8 @@ class LS3DCDataset:
 		normals = torch.cat(normals, 0).to(torch.float32)                              # float (N, C)
 		normals_gt = torch.cat(normals_gt, 0).to(torch.float32)
 		semantics_gt = torch.cat(semantics_gt, 0).long()
-		all_labels = torch.cat(labels, 0).long()                     # long (N)
-		edge_indices = torch.cat(edge_indices, 0).long()
+		all_labels = torch.cat(all_labels, 0).long()                     # long (N)
+		#edge_indices = torch.cat(edge_indices, 0).long()
 
 		max_dim = locs.max(0)[0][1:].numpy()
 		min_dim = locs.min(0)[0][1:].numpy()
@@ -271,19 +283,19 @@ class LS3DCDataset:
 		boundaries = (boundaries[edge_indices].sum(dim=1) > 0).long()
 		'''
 
-		pt_idx = torch.where(all_labels >= 0)[0]
-		p2v_map_long = p2v_map.long()
+		# pt_idx = torch.where(all_labels >= 0)[0]
+		# p2v_map_long = p2v_map.long()
 
-		boundary_mask = torch.zeros((voxel_locs.shape[0])).long() - 1
-		boundary_mask[p2v_map_long[pt_idx].long()] = all_labels[pt_idx]
-		boundaries = boundary_mask[p2v_map_long]
+		# boundary_mask = torch.zeros((voxel_locs.shape[0])).long() - 1
+		# boundary_mask[p2v_map_long[pt_idx].long()] = all_labels[pt_idx]
+		# boundaries = boundary_mask[p2v_map_long]
 
-		boundaries = (boundaries[edge_indices][:,0] == boundaries[edge_indices][:,1]).long()
+		# boundaries = (boundaries[edge_indices][:,0] == boundaries[edge_indices][:,1]).long()
 
 		return {'locs': locs, 'voxel_locs': voxel_locs, 'p2v_map': p2v_map, 'v2p_map': v2p_map,
-			'locs_float': locs_float, 'locs_indices': locs_indices, 'locs_float_gt': locs_float_gt,
-			'normals': normals, 'normals_gt': normals_gt, 'semantics_gt':semantics_gt, 'boundaries': boundaries, 'edge_indices': edge_indices,
-			'id': id, 'spatial_shape': spatial_shape, 'file_names': file_names}
+				'locs_float': locs_float, 'locs_indices': locs_indices, 'locs_float_gt': locs_float_gt,
+				'normals': normals, 'normals_gt': normals_gt, 'semantics_gt':semantics_gt, 'id': id,
+				'labels': all_labels, 'spatial_shape': spatial_shape, 'file_names': file_names}
 
 def Visualize(locs, locs_float, locs_float_gt, labels, prefix):
 	max_label = np.max(labels) + 1
