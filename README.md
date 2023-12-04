@@ -7,9 +7,17 @@ Jingwei Huang, Yanfeng Zhang, Mingwei Sun. [**PrimitiveNet: Primitive Instance S
 ![PrimitiveNet Teaser](https://github.com/hjwdzh/PrimitiveNet/raw/main/resource/teaser.jpg)
 
 ## Compile
+For bash:
 ```
-git submodule update --init --recursive
-sh scripts/compile.sh
+bash -i create_env.sh
+```
+for zsh:
+```
+zsh -i create_env.sh
+```
+activate the environment:
+```
+conda activate primitivenet
 ```
 
 ## Download data and checkpoints
