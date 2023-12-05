@@ -4,6 +4,12 @@ import numpy as np
 import torch
 from lapsolver import solve_dense
 from multiprocessing import Pool
+from tqdm import tqdm
+from concurrent.futures import as_completed, ProcessPoolExecutor
+
+import warnings
+
+warnings.filterwarnings('ignore')
 
 def guard_mean_shift(ms, embedding, quantile, iterations, kernel_type="gaussian"):
 	"""
@@ -183,6 +189,8 @@ def SaveRelation(i):
 	data = np.load(f)
 	V, L, L_gt, S, S_gt = data['V'], data['L'], data['L_gt'], data['S'], data['S_gt']
 
+	#print(L.shape, S.shape, L_gt.shape, S_gt.shape)
+
 	weights = to_one_hot(L, np.unique(L).shape[0])
 	s_iou, p_iou, _, _ = SIOU_matched_segments(
 		L_gt,
@@ -198,8 +206,14 @@ def SaveRelation(i):
 	result = np.array([s_iou, p_iou])
 
 	np.savez_compressed('results/relation-iou/%d.npz'%(i), result=result)
-with Pool(4) as p:
-	p.map(SaveRelation, [i for i in range(len(files))])
+
+workers = 8
+max_workers = min(len(files), workers)
+
+executor = ProcessPoolExecutor(max_workers=max_workers)
+jobs = [executor.submit(SaveRelation, param) for param in range(len(files))]
+for job in tqdm(as_completed(jobs), total=len(jobs), desc='Generating IoUs: ', colour='green'):
+	job.result()
 
 files = os.listdir('results/relation-iou')
 s_ious = []

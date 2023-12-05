@@ -3,7 +3,11 @@ import sys
 import numpy as np
 
 import pickle
-from multiprocessing import Pool
+from tqdm import tqdm
+from concurrent.futures import as_completed, ProcessPoolExecutor
+
+import warnings
+warnings.filterwarnings('ignore')
 
 def Visualize(V, F, L, L_gt):
 	face_labels = L
@@ -86,20 +90,27 @@ def SaveRelation(i):
 	with open('results/relation/%s.pkl'%(f.split('/')[-1][:-4]), 'wb') as handle:
 		pickle.dump((relation_pred, relation_gt, label_count, label_count_gt, L, L_gt), handle, protocol = pickle.HIGHEST_PROTOCOL)
 
+
 if sys.argv[-1] == '1':
-	with Pool(32) as p:
-		p.map(SaveRelation, [i for i in range(len(files))])
+	workers = 32
+	max_workers = min(len(files), workers)
+
+	executor = ProcessPoolExecutor(max_workers=max_workers)
+	jobs = [executor.submit(SaveRelation, param) for param in range(len(files))]
+	for job in tqdm(as_completed(jobs), total=len(jobs), desc='Generating APs: ', colour='green'):
+		job.result()
+
 	exit(0)
 
 files = ['results/relation/' + f for f in os.listdir('results/relation')][:]
 
 aps = []
-for oi, overlap_th in enumerate(overlaps):
+for oi, overlap_th in enumerate(tqdm(overlaps, desc='Generating AP Overlaps: ', colour='green', position=0)):
 	hard_false_negatives = 0
 	y_true = np.empty(0)
 	y_score = np.empty(0)
 	c = 0
-	for fi, f in enumerate(files):
+	for fi, f in enumerate(tqdm(files, desc=f'Generating AP_{overlap_th:.2f}: ', position=1, leave=False)):
 		c += 1
 		with open(f, 'rb') as handle:
 			relation_pred, relation_gt, label_count, label_count_gt, L, L_gt = pickle.load(handle)
@@ -203,7 +214,6 @@ for oi, overlap_th in enumerate(overlaps):
 	ap_current = np.dot(precision, stepWidths)
 
 	aps.append(ap_current)
-	print(overlap_th, ap_current)
 
 aps = np.array(aps)
 fp = open(sys.argv[-2], 'w')
