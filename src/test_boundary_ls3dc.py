@@ -178,12 +178,12 @@ def Parse(iii, model, model_fn, start_epoch):
         V.shape[0], F.shape[0], c_void_p(face_labels.ctypes.data), c_void_p(masks.ctypes.data),
         c_float(0.99))
 
-    pb = boundaries
-    gt_face_labels = np.zeros((F.shape[0]), dtype='int32')
-    gt_masks = np.zeros((V.shape[0]), dtype='int32')      
-    Regiongrow.RegionGrowingNoMesh(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
-        V.shape[0], F.shape[0], c_void_p(gt_face_labels.ctypes.data), c_void_p(gt_masks.ctypes.data),
-        c_float(0.99))
+    # pb = boundaries
+    # gt_face_labels = np.zeros((F.shape[0]), dtype='int32')
+    # gt_masks = np.zeros((V.shape[0]), dtype='int32')      
+    # Regiongrow.RegionGrowingNoMesh(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
+    #     V.shape[0], F.shape[0], c_void_p(gt_face_labels.ctypes.data), c_void_p(gt_masks.ctypes.data),
+    #     c_float(0.99))
 
     # it was indexing the faces, but now it is indexing the vertices
     # the method was using GT two times in the evaluation of types accuracy??
@@ -196,7 +196,7 @@ def Parse(iii, model, model_fn, start_epoch):
     V_fixed = prediction['o'].cpu().detach().numpy()
     N_fixed = prediction['n'].cpu().detach().numpy()
     np.savez_compressed('results/predictions/%s'%(fn.split('/')[-1]), V=xyz_origin_noise, V_fixed=V_fixed, N=normal_noise,
-                                                                      N_fixed=N_fixed, F=F, L=masks,L_gt=gt_masks, S=semantics,
+                                                                      N_fixed=N_fixed, F=F, L=masks, L_gt=labels, S=semantics,
                                                                       S_gt=semantics_gt)
 
     # colors = np.random.rand(10000, 3)

@@ -189,11 +189,13 @@ def SaveRelation(i):
 	data = np.load(f)
 	V, L, L_gt, S, S_gt = data['V'], data['L'], data['L_gt'], data['S'], data['S_gt']
 
-	#print(L.shape, S.shape, L_gt.shape, S_gt.shape)
+	gt_min = -1 if np.min(L_gt) == -1 else 0
+	_, L_gt_continuous = np.unique(L_gt, return_inverse=True)
+	L_gt_continuous += gt_min
 
 	weights = to_one_hot(L, np.unique(L).shape[0])
 	s_iou, p_iou, _, _ = SIOU_matched_segments(
-		L_gt,
+		L_gt_continuous,
 		L,
 		S,
 		S_gt,
@@ -205,9 +207,11 @@ def SaveRelation(i):
 
 	result = np.array([s_iou, p_iou])
 
-	np.savez_compressed('results/relation-iou/%d.npz'%(i), result=result)
+	filename = os.path.splitext(os.path.basename(f))[0]
 
-workers = 8
+	np.savez_compressed(f'results/relation-iou/{filename}.npz', result=result)
+
+workers = 20
 max_workers = min(len(files), workers)
 
 executor = ProcessPoolExecutor(max_workers=max_workers)

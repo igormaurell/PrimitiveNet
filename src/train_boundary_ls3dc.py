@@ -81,6 +81,7 @@ def train_epoch(train_loader, model, model_fn, optimizer, epoch):
         writer.add_scalar('train/o', loss_out['o_loss'][0], iterations)
         writer.add_scalar('train/n', loss_out['n_loss'][0], iterations)
         writer.add_scalar('train/b', loss_out['b_loss'][0], iterations)
+        writer.add_scalar('train/p', loss_out['p_loss'][0], iterations)
         writer.flush()
         iterations += 1
         ##### meter_dict
