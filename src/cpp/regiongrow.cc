@@ -103,14 +103,6 @@ void RegionGrowingNoMesh(int* boundary, int* F, int numV, int numF, int* face_la
 		}
 	}
 
-	if (output_mask) {
-		int b = 0;
-		for (int i = 0; i < numV; ++i) {
-			output_mask[i] = (mask[i] == -1) ? 1 : 0;
-			b += output_mask[i];
-		}
-	}
-
 	int num_labels = 0;
 	for (int i = 0; i < mask.size(); ++i) {
 		if (mask[i] == -2) {
@@ -129,6 +121,14 @@ void RegionGrowingNoMesh(int* boundary, int* F, int numV, int numF, int* face_la
 			}
 			num_labels += 1;
 		}
+	}
+
+	for (int i = 0; i < numV; ++i) {
+		int label = -1;
+		if (mask[i] >= 0) {
+			label = mask[i];
+		}
+		output_mask[i] = label;
 	}
 
 	for (int i = 0; i < numF; ++i) {
