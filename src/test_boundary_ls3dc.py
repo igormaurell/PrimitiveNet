@@ -167,8 +167,6 @@ def Parse(iii, model, model_fn, start_epoch):
     #intensity = prediction['b'][:,1].data.cpu().numpy() * 0.99
 
     F = prediction['e'].cpu().numpy().astype(np.int32)
-
-    boundaries = (labels[F[:, 0]] == labels[F[:, 1]])
   
     # TODO: make the method to not use F anymore
     face_labels = np.zeros((F.shape[0]), dtype='int32')
@@ -178,12 +176,19 @@ def Parse(iii, model, model_fn, start_epoch):
         V.shape[0], F.shape[0], c_void_p(face_labels.ctypes.data), c_void_p(masks.ctypes.data),
         c_float(0.99))
 
-    # pb = boundaries
-    # gt_face_labels = np.zeros((F.shape[0]), dtype='int32')
-    # gt_masks = np.zeros((V.shape[0]), dtype='int32')      
-    # Regiongrow.RegionGrowingNoMesh(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
-    #     V.shape[0], F.shape[0], c_void_p(gt_face_labels.ctypes.data), c_void_p(gt_masks.ctypes.data),
-    #     c_float(0.99))
+    valid_edges_maks = np.all(labels[F] != -1, axis=1)
+    gt_boundary = np.zeros(F.shape[0],)
+    gt_boundary[valid_edges_maks] = (labels[F[valid_edges_maks, 0]] == labels[F[valid_edges_maks, 1]])
+
+    pb = gt_boundary
+    gt_face_labels = np.zeros((F.shape[0]), dtype='int32')
+    gt_masks = np.zeros((V.shape[0]), dtype='int32')      
+    Regiongrow.RegionGrowingNoMesh(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
+        V.shape[0], F.shape[0], c_void_p(gt_face_labels.ctypes.data), c_void_p(gt_masks.ctypes.data),
+        c_float(0.99))
+
+    # print(np.unique(gt_masks))
+    # print(np.unique(labels))
 
     # it was indexing the faces, but now it is indexing the vertices
     # the method was using GT two times in the evaluation of types accuracy??
@@ -199,18 +204,19 @@ def Parse(iii, model, model_fn, start_epoch):
                                                                       N_fixed=N_fixed, F=F, L=masks, L_gt=labels, S=semantics,
                                                                       S_gt=semantics_gt)
 
-    # colors = np.random.rand(10000, 3)
-    # VC = (V[F[:,0]] + V[F[:,1]] + V[F[:,2]]) / 3.0
+    colors = np.random.rand(200000, 3)
 
-    # fp = open('results/visualize/%s.obj'%(fn.split('/')[-1][:-4]), 'w')
-    # for i in range(VC.shape[0]):
-    #     v = VC[i]
-    #     if face_labels[i] < 0:
-    #         p = np.array([0,0,0])
-    #     else:
-    #         p = colors[face_labels[i]]
-    #     fp.write('v %f %f %f %f %f %f\n'%(v[0],v[1],v[2],p[0],p[1],p[2]))
-    # fp.close()
+    #VC = (V[F[:,0]] + V[F[:,1]] + V[F[:,2]]) / 3.0
+
+    fp = open('results/visualize/%s.obj'%(fn.split('/')[-1][:-4]), 'w')
+    for i in range(xyz_origin_noise.shape[0]):
+        v = xyz_origin_noise[i]
+        if masks[i] < 0:
+            p = np.array([0,0,0])
+        else:
+            p = colors[masks[i]]
+        fp.write('v %f %f %f %f %f %f\n'%(v[0],v[1],v[2],p[0],p[1],p[2]))
+    fp.close()
 
 if __name__ == '__main__':
     ##### init

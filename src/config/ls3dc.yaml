@@ -36,4 +36,4 @@ OPTIM:
 
 TEST:
   pred_path: results/preds
-  exp_path: ./checkpoint/ls3dc_444_7k
+  exp_path: ./checkpoint/ls3dc_444_7k_2_new

@@ -10,7 +10,7 @@ rm results/predictions/*
 rm results/relation/*
 rm results/relation-iou/*
 
-python3 test_boundary_ls3dc.py --config config/ls3dc.yaml --pretrain ../src/checkpoint/ls3dc_444_7k/ls3dc-000000076.pth
+python3 test_boundary_ls3dc.py --config config/ls3dc.yaml --pretrain ../src/checkpoint/ls3dc_444_7k_2_new/ls3dc-000000101.pth
 python3 eval_iou.py results/predictions
 python3 eval_ap.py results/predictions 1
 python3 eval_ap.py results/predictions results/statistics/AP.txt 0

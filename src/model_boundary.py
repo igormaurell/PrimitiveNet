@@ -317,7 +317,9 @@ def model_fn_decorator(test=False):
 
             edges = ret['edges']
 
-            gt_boundary = (labels[edges[:, 0]] == labels[edges[:, 1]]).long()
+            valid_edges_maks = torch.all(labels[edges] != -1, axis=1)
+            gt_boundary = torch.zeros(edges.shape[0],).cuda().long()
+            gt_boundary[valid_edges_maks] = (labels[edges[valid_edges_maks, 0]] == labels[edges[valid_edges_maks, 1]]).long()
         
         #semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
         

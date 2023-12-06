@@ -189,7 +189,13 @@ def SaveRelation(i):
 	data = np.load(f)
 	V, L, L_gt, S, S_gt = data['V'], data['L'], data['L_gt'], data['S'], data['S_gt']
 
-	gt_min = -1 if np.min(L_gt) == -1 else 0
+	# positive_mask = L >= 0
+	# counts = np.bincount(L[positive_mask])
+	# keep_labels_mask = counts >= 100
+	# valid_mask = keep_labels_mask[L[positive_mask]]
+	# L[positive_mask][~valid_mask] = -1
+
+	gt_min = -1 if np.min(L_gt) <= -1 else 0
 	_, L_gt_continuous = np.unique(L_gt, return_inverse=True)
 	L_gt_continuous += gt_min
 
