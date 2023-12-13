@@ -88,20 +88,19 @@ void RegionGrowingNoMesh(int* boundary, int* F, int numV, int numF, int* face_la
 		}
 	}
 
-	std::vector<int> mask(numV, -2);
-	int num_boundary = 0;
-	for (int i = 0; i < numV; ++i) {
-		int is_boundary = 0;
-		for (auto& info : v_neighbors[i]) {
-			if (info.second == 1) {
-				is_boundary += 1;
-			}
-		}
-		if (is_boundary >= v_neighbors[i].size() * score_thres) {
-			mask[i] = -1;
-			num_boundary += 1;
-		}
-	}
+	// This makes the results worst when using no mesh
+	// std::vector<int> mask(numV, -2);
+	// for (int i = 0; i < numV; ++i) {
+	// 	int is_not_boundary = 0;
+	// 	for (auto& info : v_neighbors[i]) {
+	// 		if (info.second == 0) {
+	// 			is_not_boundary += 1;
+	// 		}
+	// 	}
+	// 	if (is_not_boundary == v_neighbors[i].size()) {
+	// 		mask[i] = -1;
+	// 	}
+	// }
 
 	int num_labels = 0;
 	for (int i = 0; i < mask.size(); ++i) {

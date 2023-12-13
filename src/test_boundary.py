@@ -151,7 +151,6 @@ def Parse(iii, model, model_fn, start_epoch):
     face_labels = np.zeros((F.shape[0]), dtype='int32')
     masks = np.zeros((V.shape[0]), dtype='int32')
     pb = (prediction['b'][:,1]>prediction['b'][:,0]).data.cpu().numpy().astype('int32')
-    print(pb.shape, F.shape)
     Regiongrow.RegionGrowing(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
         V.shape[0], F.shape[0], c_void_p(face_labels.ctypes.data), c_void_p(masks.ctypes.data),
         c_float(0.99))

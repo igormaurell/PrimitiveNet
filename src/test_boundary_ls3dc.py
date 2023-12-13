@@ -182,7 +182,7 @@ def Parse(iii, model, model_fn, start_epoch):
 
     pb = gt_boundary
     gt_face_labels = np.zeros((F.shape[0]), dtype='int32')
-    gt_masks = np.zeros((V.shape[0]), dtype='int32')      
+    gt_masks = np.zeros((V.shape[0]), dtype='int32')  
     Regiongrow.RegionGrowingNoMesh(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
         V.shape[0], F.shape[0], c_void_p(gt_face_labels.ctypes.data), c_void_p(gt_masks.ctypes.data),
         c_float(0.99))
@@ -195,8 +195,12 @@ def Parse(iii, model, model_fn, start_epoch):
     # semantic_faces = semantics[F[:,0]]
     # semantic_faces_gt = semantics_gt.data.cpu().numpy()[F[:,0]]
 
-    semantics = np.argmax(prediction['p'].cpu().detach().numpy().astype(np.int32), axis=1)
+    semantics = np.argmax(prediction['p'].cpu().detach().numpy(), axis=1).astype(np.int32)
     semantics_gt = semantics_gt.data.cpu().numpy()
+
+    # print(np.unique(gt_masks))
+    # print(np.unique(labels))
+    # print(np.unique(masks))
 
     V_fixed = prediction['o'].cpu().detach().numpy()
     N_fixed = prediction['n'].cpu().detach().numpy()
@@ -207,14 +211,13 @@ def Parse(iii, model, model_fn, start_epoch):
     colors = np.random.rand(200000, 3)
 
     #VC = (V[F[:,0]] + V[F[:,1]] + V[F[:,2]]) / 3.0
-
-    fp = open('results/visualize/%s.obj'%(fn.split('/')[-1][:-4]), 'w')
+    fp = open('results/visualize/%s.obj'%(fn.split('/')[-1]), 'w')
     for i in range(xyz_origin_noise.shape[0]):
         v = xyz_origin_noise[i]
-        if masks[i] < 0:
+        if gt_masks[i] < 0:
             p = np.array([0,0,0])
         else:
-            p = colors[masks[i]]
+            p = colors[gt_masks[i]]
         fp.write('v %f %f %f %f %f %f\n'%(v[0],v[1],v[2],p[0],p[1],p[2]))
     fp.close()
 
