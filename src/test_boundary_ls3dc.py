@@ -175,10 +175,12 @@ def Parse(iii, model, model_fn, start_epoch):
     Regiongrow.RegionGrowingNoMesh(c_void_p(pb.ctypes.data), c_void_p(F.ctypes.data),
         V.shape[0], F.shape[0], c_void_p(face_labels.ctypes.data), c_void_p(masks.ctypes.data),
         c_float(0.99))
+    
+    face_labels = labels[F]
+    valid_edges_mask = ~np.logical_and(face_labels[:, 0] == -1, face_labels[:, 1] == -1)
 
-    valid_edges_maks = np.all(labels[F] != -1, axis=1)
-    gt_boundary = np.zeros(F.shape[0],)
-    gt_boundary[valid_edges_maks] = (labels[F[valid_edges_maks, 0]] == labels[F[valid_edges_maks, 1]])
+    gt_boundary = np.ones(F.shape[0], dtype=np.int32) * -1
+    gt_boundary[valid_edges_mask] = (labels[F[valid_edges_mask, 0]] != labels[F[valid_edges_mask, 1]])
 
     pb = gt_boundary
     gt_face_labels = np.zeros((F.shape[0]), dtype='int32')
@@ -201,6 +203,7 @@ def Parse(iii, model, model_fn, start_epoch):
     # print(np.unique(gt_masks))
     # print(np.unique(labels))
     # print(np.unique(masks))
+    # print(len(np.unique(gt_masks)), len(np.unique(labels)))
 
     V_fixed = prediction['o'].cpu().detach().numpy()
     N_fixed = prediction['n'].cpu().detach().numpy()
@@ -220,6 +223,36 @@ def Parse(iii, model, model_fn, start_epoch):
             p = colors[gt_masks[i]]
         fp.write('v %f %f %f %f %f %f\n'%(v[0],v[1],v[2],p[0],p[1],p[2]))
     fp.close()
+
+    # fp = open('results/visualize/%s-b0.obj'%(fn.split('/')[-1]), 'w')
+    # voffset = 1
+    # for k in range(gt_boundary.shape[0]):
+    #     if gt_boundary[k] == 1 or gt_boundary[k] == -1:
+    #         continue
+
+    #     v0 = V[F[k, 0]]
+    #     v1 = V[F[k, 1]]
+    #     fp.write('v %f %f %f\n'%(v0[0],v0[1],v0[2]))
+    #     fp.write('v %f %f %f\n'%(v1[0],v1[1],v1[2]))
+    #     fp.write('l %d %d\n'%(voffset, voffset + 1))
+    #     voffset += 2
+    # fp.close()
+
+    # fp = open('results/visualize/%s-b1.obj'%(fn.split('/')[-1]), 'w')
+    # voffset = 1
+    # for k in range(gt_boundary.shape[0]):
+    #     if gt_boundary[k] == 0 or gt_boundary[k] == -1:
+    #         continue
+
+    #     v0 = V[F[k, 0]]
+    #     v1 = V[F[k, 1]]
+    #     fp.write('v %f %f %f\n'%(v0[0],v0[1],v0[2]))
+    #     fp.write('v %f %f %f\n'%(v1[0],v1[1],v1[2]))
+    #     fp.write('l %d %d\n'%(voffset, voffset + 1))
+    #     voffset += 2
+    # fp.close()
+
+
 
 if __name__ == '__main__':
     ##### init

@@ -247,8 +247,6 @@ if __name__ == '__main__':
 			S = semantics[vindices]
 			colors = np.random.rand(10000,3)
 
-			print(V.shape[0], np.max(edge_indices))
-
 			fp = open('Visualizes/model-%d-n.obj'%(j), 'w')
 			for k in range(V.shape[0]):
 				v = V[k]
@@ -287,7 +285,5 @@ if __name__ == '__main__':
 				fp.write('l %d %d\n'%(voffset, voffset + 1))
 				voffset += 2
 			fp.close()
-		print(normals.shape, normals_gt.shape, locs_float.shape)
-		print(edge_indices.shape, boundaries.shape)
 
 		exit(0)

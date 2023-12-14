@@ -80,7 +80,7 @@ void RegionGrowingNoMesh(int* boundary, int* F, int numV, int numF, int* face_la
 	std::vector<std::unordered_map<int, int> > v_neighbors(numV);
 	for (int i = 0; i < numF; ++i) {
 		for (int j = 0; j < 2; ++j) {
-			int b = boundary[j * numF + i];
+			int b = boundary[i];
 			int v0 = F[i * 2 + j];
 			int v1 = F[i * 2 + (j + 1) % 2];
 			v_neighbors[v0][v1] = b;
@@ -88,19 +88,24 @@ void RegionGrowingNoMesh(int* boundary, int* F, int numV, int numF, int* face_la
 		}
 	}
 
-	// This makes the results worst when using no mesh
-	// std::vector<int> mask(numV, -2);
-	// for (int i = 0; i < numV; ++i) {
-	// 	int is_not_boundary = 0;
-	// 	for (auto& info : v_neighbors[i]) {
-	// 		if (info.second == 0) {
-	// 			is_not_boundary += 1;
-	// 		}
-	// 	}
-	// 	if (is_not_boundary == v_neighbors[i].size()) {
-	// 		mask[i] = -1;
-	// 	}
-	// }
+	std::vector<int> mask(numV, -2);
+	int num_boundary = 0;
+	for (int i = 0; i < numV; ++i) {
+		int is_boundary = 0;
+		int is_invalid = 0;
+		for (auto& info : v_neighbors[i]) {
+			if (info.second == 1) {
+				is_boundary += 1;
+			}
+			else if(info.second == -1) {
+				is_invalid = 1;
+			}
+		}
+		if (is_boundary >= v_neighbors[i].size() * score_thres || is_invalid) {
+			mask[i] = -1;
+			num_boundary += 1;
+		}
+	}
 
 	int num_labels = 0;
 	for (int i = 0; i < mask.size(); ++i) {
