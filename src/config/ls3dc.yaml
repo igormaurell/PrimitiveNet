@@ -19,6 +19,7 @@ MODEL:
   block_reps: 2
   classes: 4
   use_coords: True
+  invalid_boundary_value: 0
   pretrain_path:
   pretrain_module: []
   fix_module: []
@@ -36,4 +37,4 @@ OPTIM:
 
 TEST:
   pred_path: results/preds
-  exp_path: ./checkpoint/ls3dc_444_7k_4
+  exp_path: ./checkpoint_bound/ls3dc_444_7k_minus1

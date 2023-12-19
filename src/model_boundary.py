@@ -320,12 +320,9 @@ def model_fn_decorator(test=False):
             face_labels = labels[edges]
             valid_edges_mask = ~torch.logical_and(face_labels[:, 0] == -1, face_labels[:, 1] == -1)
 
-            gt_boundary = torch.ones(edges.shape[0]).cuda().long() * -1
+            gt_boundary = torch.ones(edges.shape[0]).cuda().long() * cfg.invalid_boundary_value
             gt_boundary[valid_edges_mask] = (labels[edges[valid_edges_mask, 0]] != labels[edges[valid_edges_mask, 1]]).long()
-
-            # valid_edges_maks = torch.all(labels[edges] != -1, axis=1)
-            # gt_boundary = torch.ones(edges.shape[0],).cuda().long()
-            # gt_boundary[valid_edges_maks] = (labels[edges[valid_edges_maks, 0]] != labels[edges[valid_edges_maks, 1]]).long()
+        
         
         #semantic_scores = ret['semantic_scores'] # (N, nClass) float32, cuda
         
